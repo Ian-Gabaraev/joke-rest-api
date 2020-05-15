@@ -7,6 +7,9 @@ from flask import make_response
 from flask_restful import Resource
 from flask_restful import Api
 from flask_restful import reqparse
+from .models import User
+from .models import Joke
+from .models import Action
 
 
 @app.route('/')

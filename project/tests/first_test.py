@@ -5,14 +5,17 @@ import unittest
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
 
+
 app = create_app()
 
 
 class BasicTestCase(unittest.TestCase):
+
+    tester = app.test_client()
+
     def test_empty_204_response_to_index_page(self):
         """Test if request to index page returns 204 No Content"""
-        tester = app.test_client(self)
-        response = tester.get('/', content_type='html/text')
+        response = self.tester.get('/', content_type='html/text')
         self.assertEqual(response.status_code, 204)
 
 
@@ -54,8 +57,10 @@ class RegistrationResourceTestCase(unittest.TestCase):
         pass
 
 
-class JokeResourceTestCase(unittest.TestCase):
-    pass
+class JokesResourceTestCase(unittest.TestCase):
+    def test_creating_a_joke_with_correct_parameters(self):
+        """Test if submitting correct parameters to
+        create-joke endpoint returns 201 Created"""
 
 
 if __name__ == '__main__':
