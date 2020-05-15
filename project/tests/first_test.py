@@ -1,4 +1,7 @@
+import sys
+import os
 import unittest
+sys.path.append(os.getcwd() + '/..')
 from project import create_app
 
 app = create_app()
