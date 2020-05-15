@@ -1,6 +1,7 @@
 import sys
 import os
 import unittest
+# Fixes the relative import issue for Travis CI
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
 
@@ -16,23 +17,24 @@ class BasicTestCase(unittest.TestCase):
 
 
 class RegistrationResourceTestCase(unittest.TestCase):
+
+    tester = app.test_client()
+
     def test_registration_with_correct_credentials(self):
         """Test if request to registration resource with
         correct credentials returns 201 Created"""
-        tester = app.test_client(self)
-        username = 'iangabaraev'
-        password = 'xenomorph'
-        response = tester.post('/register', data=dict(
+        username = 'iangabaraev95'
+        password = 'xenomorph121'
+        response = self.tester.post('/register', data=dict(
             username=username, password=password))
         self.assertEqual(response.status_code, 201)
 
-    def test_registration_with_wrong_size_of_credentials(self):
+    def test_registration_with_wrongly_sized_credentials(self):
         """Test if request to registration resource with
         wrongly sized credentials returns 400 Bad Request"""
-        tester = app.test_client(self)
-        username = 'a'
+        username = 'ian'
         password = 100
-        response = tester.post('/register', data=dict(
+        response = self.tester.post('/register', data=dict(
             username=username, password=password
         ))
         self.assertEqual(response.status_code, 400)
@@ -40,12 +42,20 @@ class RegistrationResourceTestCase(unittest.TestCase):
     def test_registration_with_missing_credential(self):
         """Test if request to registration resource without
         password returns 400 Bad Request"""
-        tester = app.test_client(self)
         username = 'ian'
-        response = tester.post('/register', data=dict(
+        response = self.tester.post('/register', data=dict(
             username=username
         ))
         self.assertEqual(response.status_code, 400)
+
+    def test_attempt_to_register_with_existing_username(self):
+        """Test if attempt to register under existing username
+        returns 400 Bad Request"""
+        pass
+
+
+class JokeResourceTestCase(unittest.TestCase):
+    pass
 
 
 if __name__ == '__main__':
