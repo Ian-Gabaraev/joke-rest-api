@@ -1,12 +1,10 @@
 from flask import current_app as app
-from flask import Markup
-from flask import Request
-from flask import Response
 from flask import jsonify
 from flask import make_response
 from flask_restful import Resource
 from flask_restful import Api
 from flask_restful import reqparse
+from sqlalchemy.exc import IntegrityError
 from .models import User
 from .models import Joke
 from .models import Action
@@ -50,9 +48,14 @@ class Registration(Resource):
             username=Registration.parser.parse_args()['username'],
             password=sha256_crypt.hash(Registration.parser.parse_args()['password'])
         )
-        db.session.add(new_user)
-        db.session.commit()
-        return make_response('User created', 201)
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+        # Trying to add a UNIQUE field twice violates database integrity
+        except IntegrityError:
+            return make_response('This username is occupied', 400)
+        else:
+            return make_response('User created', 201)
 
 
 api = Api(app)
