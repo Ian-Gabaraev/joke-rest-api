@@ -50,17 +50,29 @@ class RegistrationResourceTestCase(unittest.TestCase):
     """
 
     @staticmethod
-    def register_fake_user():
+    def register_fake_user(username, password, feedback=False):
         response = tester.post('/register', data=dict(
-            username=app.config['FAKE_USER'],
-            password=app.config['FAKE_USER_PASSWORD']
+            username=username,
+            password=password
         ))
-        return response
+        if feedback:
+            return response
+
+    @staticmethod
+    def get_user_id(username):
+        with app.test_request_context():
+            identity = User.query.filter_by(
+                username=username).first().id
+            return identity
 
     def test_register_new_user(self):
         """Test if newly created user is in User table
         and status code is 201 Created"""
-        response = RegistrationResourceTestCase.register_fake_user()
+        response = RegistrationResourceTestCase.register_fake_user(
+            app.config['FAKE_USER'],
+            app.config['FAKE_USER_PASSWORD'],
+            feedback=True
+        )
         with app.app_context():
             self.fake_user = User.query.filter_by(username=app.config['FAKE_USER']).first()
             self.assertTrue(self.fake_user)
@@ -70,8 +82,16 @@ class RegistrationResourceTestCase(unittest.TestCase):
         """Then, test if attempt to register under existing username
         returns 400 Bad Request"""
 
-        RegistrationResourceTestCase.register_fake_user()
-        response = RegistrationResourceTestCase.register_fake_user()
+        RegistrationResourceTestCase.register_fake_user(
+            app.config['FAKE_USER'],
+            app.config['FAKE_USER_PASSWORD'],
+            feedback=False
+        )
+        response = RegistrationResourceTestCase.register_fake_user(
+            app.config['FAKE_USER'],
+            app.config['FAKE_USER_PASSWORD'],
+            feedback=True
+        )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data, b'This user already exists')
@@ -184,15 +204,6 @@ class BasicJokesResourceTestCase(unittest.TestCase):
     )
 
     @staticmethod
-    def register_fake_user(username, password, feedback=False):
-        response = tester.post('/register', data=dict(
-            username=username,
-            password=password
-        ))
-        if feedback:
-            return response
-
-    @staticmethod
     def login_fake_user(username, password, jwt=False):
         response = tester.post('/login', data=dict(
             username=username,
@@ -202,9 +213,38 @@ class BasicJokesResourceTestCase(unittest.TestCase):
             return response
         return json.loads(response.data.decode('utf-8'))['access_token']
 
+    @staticmethod
+    def get_joke_id(user_id, content):
+        with app.app_context():
+            this_joke = Joke.query.filter_by(
+                user_id=user_id,
+                content=content).first()
+            return this_joke
+
+    @staticmethod
+    def create_joke(content, access_token, feedback=False):
+        response = tester.put(
+            '/create-joke',
+            data=dict(
+                content=content),
+            headers=dict(Authorization='Bearer ' + access_token)
+        )
+        if feedback:
+            return response
+
+    @staticmethod
+    def delete_joke(user_id, content):
+        with app.test_request_context():
+            fake_joke = Joke.query.filter_by(
+                user_id=user_id,
+                content=content
+            ).first()
+            db.session.delete(fake_joke)
+            db.session.commit()
+
     def setUp(self):
         # First, register a new user in the User table"""
-        BasicJokesResourceTestCase.register_fake_user(
+        RegistrationResourceTestCase.register_fake_user(
             app.config['JOKE_FAKE_USER'],
             app.config['JOKE_FAKE_USER_PASSWORD']
         )
@@ -217,26 +257,26 @@ class BasicJokesResourceTestCase(unittest.TestCase):
         )
 
         # Get id of User than made the request
-        with app.test_request_context():
-            self.identity = User.query.filter_by(
-                username=app.config['JOKE_FAKE_USER']).first().id
+        self.identity = RegistrationResourceTestCase.get_user_id(
+            app.config['JOKE_FAKE_USER']
+        )
 
     def test_creating_a_joke_with_correct_parameters(self):
         """Test if submitting correct parameters to
         create-joke endpoint returns 201 Created"""
 
-        # Send request to protected endpoint
-        # /create-joke with Authorization headers
-        response = tester.put('/create-joke', data=dict(
-            content=app.config['FAKE_JOKE']),
-            headers=dict(Authorization='Bearer '+self.access_token)
+        # Create new joke
+        response = BasicJokesResourceTestCase.create_joke(
+            content=app.config['FAKE_JOKE'],
+            access_token=self.access_token,
+            feedback=True
         )
 
         # Get the newly created joke
-        with app.app_context():
-            this_joke = Joke.query.filter_by(
-                user_id=self.identity,
-                content=app.config['FAKE_JOKE']).first()
+        this_joke = BasicJokesResourceTestCase.get_joke_id(
+            user_id=self.identity,
+            content=app.config['FAKE_JOKE']
+        )
 
         # Check if the newly created joke is present in the Joke table
         self.assertTrue(this_joke)
@@ -244,13 +284,10 @@ class BasicJokesResourceTestCase(unittest.TestCase):
         self.assertEqual(response.data, b'Joke created')
 
         # Remove the fake joke from the Joke table
-        with app.test_request_context():
-            fake_joke = Joke.query.filter_by(
-                user_id=self.identity,
-                content=app.config['FAKE_JOKE']
-            ).first()
-            db.session.delete(fake_joke)
-            db.session.commit()
+        BasicJokesResourceTestCase.delete_joke(
+            user_id=self.identity,
+            content=app.config['FAKE_JOKE']
+        )
 
     def test_fail_on_submitting_humongous_string(self):
         """Test if submitting large text (> 900 chars)
@@ -282,7 +319,7 @@ class BasicJokesResourceTestCase(unittest.TestCase):
             db.session.commit()
 
 
-class RetriveJokesTestCase(unittest.TestCase):
+class RetriveJokeTestCase(unittest.TestCase):
     pass
 
 
