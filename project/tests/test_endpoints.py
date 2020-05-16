@@ -544,12 +544,10 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
 
     def test_retrieve_all_jokes_of_user_if_user_has_no_jokes(self):
         """
-        This User
-        :return:
+        This User has no jokes, test if request to the endpoint
+        returns 204 No Content
+        :return: 204 No Content
         """
-        pass
-
-    def tearDown(self):
         BasicJokesResourceTestCase.delete_joke(
             user_id=RegistrationResourceTestCase.get_user_id(
                 app.config['FAKE_USER']
@@ -562,6 +560,8 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
             ),
             content=app.config['ANOTHER_FAKE_JOKE']
         )
+
+    def tearDown(self):
         RegistrationResourceTestCase.delete_user(
             username=app.config['FAKE_USER']
         )
