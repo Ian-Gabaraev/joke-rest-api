@@ -530,7 +530,23 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
             access_token=self.access_token
         )
 
-    def test_retrieve_all_jokes_of_user(self):
+    def test_retrieve_all_jokes_of_user_if_user_has_jokes(self):
+        """
+        This User has two jokes, test if endpoint returns them
+        and status is 200 OK
+        :return: jokes: application/json, 200 OK
+        """
+        response = tester.get('/my-jokes', headers=dict(
+            Authorization='Bearer ' + self.access_token))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data)
+
+    def test_retrieve_all_jokes_of_user_if_user_has_no_jokes(self):
+        """
+        This User
+        :return:
+        """
         pass
 
     def tearDown(self):
