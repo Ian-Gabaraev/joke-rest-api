@@ -61,11 +61,11 @@ class Registration(Resource):
 
     def post(self):
         """
-        Processes POST requests to endpoint /register w/
+        Process POST requests to endpoint '/register' w/
         required parameters str: username and str: password
         :return: 400 Bad Request if username or password
-        are not alphanumeric or shorter than 6 chars each
-        Else, return 201 Created
+        are not alphanumeric or shorter than 6 chars each,
+        bigger than 20 chars each, else return 201 Created
         """
         for param in Registration.parser.parse_args().values():
             if not param.isalnum() or (len(param) < 6 or len(param) > 20):
@@ -137,7 +137,25 @@ def create_joke():
 @app.route('/get-joke-by-id')
 @jwt_required
 def get_joke_by_id():
-    pass
+    try:
+        assert 'joke_id' in request.form
+    except AssertionError:
+        return make_response('joke_id is a required parameter', 400)
+    else:
+        try:
+            joke_obj = Joke.query.filter_by(
+                joke_id=request.form['joke_id'],
+                user_id=get_jwt_identity()
+            ).first()
+            assert joke_obj
+        except AssertionError:
+            return make_response('Nothing found', 404)
+        else:
+            return make_response(
+                joke_obj.content, 200
+            )
+    finally:
+        log_action(request, get_jwt_identity())
 
 
 @app.route('/my-jokes')

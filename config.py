@@ -24,6 +24,8 @@ class Config:
     JOKE_FAKE_USER_PASSWORD = 'xiliojio31'
 
     FAKE_JOKE = 'A horse and a pigeon walk into a bar...'
+    ANOTHER_FAKE_JOKE = 'What\'s the best thing about Switzerland? ' \
+                        'I don\'t know, but the flag is a big plus.'
 
     # Messages
     BAD_PARAMETER = "User\'s name can only contain digits " \
