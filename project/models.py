@@ -5,7 +5,7 @@ class User(db.Model):
     """Table of registered Users"""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
-    password = db.Column(db.String(30), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
     jokes = db.relationship('Joke', backref='user', lazy=True)
     actions = db.relationship('Action', backref='user', lazy=True)
 

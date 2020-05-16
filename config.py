@@ -21,4 +21,4 @@ class Config:
     # Messages
     BAD_PARAMETER = "User\'s name can only contain digits " \
                     "and letters and must be at least 6 " \
-                    "characters long"
+                    "characters long, 20 characters at max"

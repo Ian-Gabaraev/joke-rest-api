@@ -5,7 +5,6 @@ import unittest
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
 
-
 app = create_app()
 
 
@@ -26,10 +25,8 @@ class RegistrationResourceTestCase(unittest.TestCase):
     def test_registration_with_correct_credentials(self):
         """Test if request to registration resource with
         correct credentials returns 201 Created"""
-        username = 'iangabaraev95'
-        password = 'xenomorph121'
         response = self.tester.post('/register', data=dict(
-            username=username, password=password))
+            username='iangabaraev95', password='xenomorph121'))
         self.assertEqual(response.status_code, 201)
 
     def test_registration_with_wrongly_sized_credentials(self):
@@ -43,9 +40,8 @@ class RegistrationResourceTestCase(unittest.TestCase):
     def test_registration_with_missing_credential(self):
         """Test if request to registration resource without
         password returns 400 Bad Request"""
-        username = 'ian'
         response = self.tester.post('/register', data=dict(
-            username=username
+            username='ian'
         ))
         self.assertEqual(response.status_code, 400)
 

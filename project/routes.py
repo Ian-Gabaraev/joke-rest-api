@@ -10,6 +10,8 @@ from flask_restful import reqparse
 from .models import User
 from .models import Joke
 from .models import Action
+from .models import db
+from passlib.hash import sha256_crypt
 
 
 @app.route('/')
@@ -39,11 +41,17 @@ class Registration(Resource):
         Else, return 201 Created
         """
         for param in Registration.parser.parse_args().values():
-            if not param.isalnum() or not len(param) >= 6:
+            if not param.isalnum() or (len(param) < 6 or len(param) > 20):
                 return make_response(jsonify(
                     error=app.config['BAD_PARAMETER']
                 ), 400)
 
+        new_user = User(
+            username=Registration.parser.parse_args()['username'],
+            password=sha256_crypt.hash(Registration.parser.parse_args()['password'])
+        )
+        db.session.add(new_user)
+        db.session.commit()
         return make_response('User created', 201)
 
 
