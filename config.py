@@ -14,6 +14,11 @@ class Config:
 
     # Tests
     FAKE_DATABASE_URI = "sqlite:///tests/test.db"
-    FAKE_USER: str = 'iangabaraev95'
-    FAKE_USER_PASSWORD: str = 'xenomorpH9021'
-    FAKE_JOKE: str = 'A horse and a pigeon walk into a bar...'
+    FAKE_USER = 'iangabaraev95'
+    FAKE_USER_PASSWORD = 'xenomorpH9021'
+    FAKE_JOKE = 'A horse and a pigeon walk into a bar...'
+
+    # Messages
+    BAD_PARAMETER = "User\'s name can only contain digits " \
+                    "and letters and must be at least 6 " \
+                    "characters long"

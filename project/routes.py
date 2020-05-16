@@ -31,15 +31,20 @@ class Registration(Resource):
     )
 
     def post(self):
-        for param in Registration.parser.parse_args():
+        """
+        Processes POST requests to endpoint /register w/
+        required parameters str: username and str: password
+        :return: 400 Bad Request if username or password
+        are not alphanumeric or shorter than 6 chars each
+        Else, return 201 Created
+        """
+        for param in Registration.parser.parse_args().values():
             if not param.isalnum() or not len(param) >= 6:
                 return make_response(jsonify(
-                    error='User\'s name can only '
-                          'contain digits and letters and '
-                          'must be at least 6 characters long'
+                    error=app.config['BAD_PARAMETER']
                 ), 400)
 
-        return make_response('', 201)
+        return make_response('User created', 201)
 
 
 api = Api(app)

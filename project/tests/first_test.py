@@ -35,10 +35,8 @@ class RegistrationResourceTestCase(unittest.TestCase):
     def test_registration_with_wrongly_sized_credentials(self):
         """Test if request to registration resource with
         wrongly sized credentials returns 400 Bad Request"""
-        username = 'ian'
-        password = 100
         response = self.tester.post('/register', data=dict(
-            username=username, password=password
+            username='ian', password=100
         ))
         self.assertEqual(response.status_code, 400)
 
