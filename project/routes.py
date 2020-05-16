@@ -83,7 +83,7 @@ class Registration(Resource):
             db.session.commit()
         # Trying to add a UNIQUE field twice violates database integrity
         except IntegrityError:
-            return make_response('This username already exists', 400)
+            return make_response('This user already exists', 400)
         else:
             return make_response('User created', 201)
 
@@ -107,6 +107,55 @@ def login():
     )
 
     return jsonify(access_token=access_token), 200
+
+
+@app.route('/create-joke', methods=['PUT'])
+@jwt_required
+def create_joke():
+    try:
+        assert 'content' in request.form
+    except AssertionError:
+        return make_response('No joke content present', 400)
+    else:
+        try:
+            assert len(request.form['content']) <= 900
+        except AssertionError:
+            return make_response('Joke string is too long. '
+                                 'Max allowed size is 900 characters', 400)
+        else:
+            new_joke = Joke(
+                content=request.form['content'],
+                user_id=get_jwt_identity()
+            )
+            db.session.add(new_joke)
+            db.session.commit()
+            return make_response('Joke created', 201)
+    finally:
+        log_action(request, get_jwt_identity())
+
+
+@app.route('/get-joke-by-id')
+@jwt_required
+def get_joke_by_id():
+    pass
+
+
+@app.route('/my-jokes')
+@jwt_required
+def get_my_jokes():
+    pass
+
+
+@app.route('/update-joke', methods=['PATCH'])
+@jwt_required
+def update_my_joke():
+    pass
+
+
+@app.route('/delete-joke', methods=['DELETE'])
+@jwt_required
+def delete_my_joke():
+    pass
 
 
 api = Api(app)

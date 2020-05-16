@@ -17,11 +17,16 @@ class Config:
 
     # Tests
     FAKE_DATABASE_URI = "sqlite:///tests/test.db"
-    FAKE_USER = 'bajekcreed09'
-    FAKE_USER_PASSWORD = 'xenomorpH9021'
+    FAKE_USER = 'baJeKcrEed09'
+    FAKE_USER_PASSWORD = 'XenomorpH1993'
+
+    JOKE_FAKE_USER = 'xamarine099'
+    JOKE_FAKE_USER_PASSWORD = 'xiliojio31'
+
     FAKE_JOKE = 'A horse and a pigeon walk into a bar...'
 
     # Messages
     BAD_PARAMETER = "User\'s name can only contain digits " \
                     "and letters and must be at least 6 " \
                     "characters long, 20 characters at max"
+    TOO_LONG = b"Joke string is too long. Max allowed size is 900 characters"

@@ -2,6 +2,8 @@ import sys
 import os
 import unittest
 import json
+import random
+from sqlalchemy.orm.exc import UnmappedInstanceError
 # Fixes the relative import issue for Travis CI
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
@@ -13,6 +15,8 @@ from project.models import db
 
 app = create_app()
 
+tester = app.test_client()
+
 
 class TestIfTablesExist(unittest.TestCase):
     """Test if tables are present and initialized"""
@@ -21,45 +25,61 @@ class TestIfTablesExist(unittest.TestCase):
             self.assertEqual(
                 len(
                     set(db.engine.table_names()).difference(
-                        set([table.__tablename__ for table in db.Model.__subclasses__()])
+                        set([table.__tablename__ for table
+                             in db.Model.__subclasses__()])
                     )),
                 0)
 
 
 class IndexPageTestCase(unittest.TestCase):
 
-    tester = app.test_client()
-
     def test_empty_204_response_to_index_page(self):
         """Test if request to index page returns 204 No Content"""
-        response = self.tester.get('/', content_type='html/text')
+        response = tester.get('/', content_type='html/text')
 
         self.assertEqual(response.status_code, 204)
 
 
 class RegistrationResourceTestCase(unittest.TestCase):
+    """
+    Test sign up functionality
+    Test-case 1: register with good credentials
+    Test-case 2: register under existing name
+    Test-case 3: register with undersized credentials
+    Test-case 4: register without password
+    """
 
-    tester = app.test_client()
+    @staticmethod
+    def register_fake_user():
+        response = tester.post('/register', data=dict(
+            username=app.config['FAKE_USER'],
+            password=app.config['FAKE_USER_PASSWORD']
+        ))
+        return response
 
-    def test_registration_with_correct_credentials(self):
-        """Test if request to registration resource with
-        correct credentials returns 201 Created"""
-        response = self.tester.post('/register', data=dict(
-            username='iangabaraev95', password='xenomorph121'))
+    def test_register_new_user(self):
+        """Test if newly created user is in User table
+        and status code is 201 Created"""
+        response = RegistrationResourceTestCase.register_fake_user()
+        with app.app_context():
+            self.fake_user = User.query.filter_by(username=app.config['FAKE_USER']).first()
+            self.assertTrue(self.fake_user)
+            self.assertEqual(response.status_code, 201)
 
-        # Tearing down the changes to the User table
-        # w/ flask test request context syntax
-        with app.test_request_context():
-            fake_user = User.query.filter_by(username='iangabaraev95').first()
-            db.session.delete(fake_user)
-            db.session.commit()
+    def test_attempt_to_register_under_existing_username(self):
+        """Then, test if attempt to register under existing username
+        returns 400 Bad Request"""
 
-        self.assertEqual(response.status_code, 201)
+        RegistrationResourceTestCase.register_fake_user()
+        response = RegistrationResourceTestCase.register_fake_user()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, b'This user already exists')
 
     def test_registration_with_wrongly_sized_credentials(self):
         """Test if request to registration resource with
         wrongly sized credentials returns 400 Bad Request"""
-        response = self.tester.post('/register', data=dict(
+        response = tester.post('/register', data=dict(
             username='ian', password=100
         ))
 
@@ -68,49 +88,36 @@ class RegistrationResourceTestCase(unittest.TestCase):
     def test_registration_with_missing_credential(self):
         """Test if request to registration resource without
         password returns 400 Bad Request"""
-        response = self.tester.post('/register', data=dict(
+        response = tester.post('/register', data=dict(
             username='ian'
-        ))
-
-        self.assertEqual(response.status_code, 400)
-
-
-class RegisteringWithCustomUsernameTestCase(unittest.TestCase):
-
-    tester = app.test_client()
-
-    def setUp(self):
-        """First, add a row with fake name to the User table"""
-        self.tester.post('/register', data=dict(
-            username=app.config['FAKE_USER'],
-            password=app.config['FAKE_USER_PASSWORD']
-        ))
-
-    def test_attempt_to_register_under_existing_username(self):
-        """Then, test if attempt to register under existing username
-        returns 400 Bad Request"""
-        response = self.tester.post('/register', data=dict(
-                username=app.config['FAKE_USER'],
-                password=app.config['FAKE_USER_PASSWORD']
         ))
 
         self.assertEqual(response.status_code, 400)
 
     def tearDown(self):
         """Remove the fake row from the User table"""
-        with app.test_request_context():
-            fake_user = User.query.filter_by(username=app.config['FAKE_USER']).first()
-            db.session.delete(fake_user)
-            db.session.commit()
+        with app.app_context():
+            self.fake_user = User.query.filter_by(username=app.config['FAKE_USER']).first()
+            try:
+                db.session.delete(self.fake_user)
+                db.session.commit()
+            except UnmappedInstanceError:
+                pass
 
 
+# REFACTORED
 class LoginTestCase(unittest.TestCase):
-
-    tester = app.test_client()
+    """
+    Test log in functionality
+    Test-case 1: log in with good credentials
+    Test-case 2: log in with bad password
+    Test-case 3: log in unregistered user
+    Test-case 4: log in without password
+    """
 
     def setUp(self):
         """First, register a new user in the User table"""
-        self.tester.post('/register', data=dict(
+        tester.post('/register', data=dict(
             username=app.config['FAKE_USER'],
             password=app.config['FAKE_USER_PASSWORD']
         ))
@@ -119,7 +126,7 @@ class LoginTestCase(unittest.TestCase):
         """Test if logging in with correct credentials returns 200 OK
         and contains a JWT
         """
-        response = self.tester.post('/login', data=dict(
+        response = tester.post('/login', data=dict(
             username=app.config['FAKE_USER'],
             password=app.config['FAKE_USER_PASSWORD']
         ))
@@ -129,7 +136,7 @@ class LoginTestCase(unittest.TestCase):
 
     def test_attempt_to_login_a_registered_user_with_wrong_password(self):
         """Test if logging in with wrong password returns 401 Unauthorized"""
-        response = self.tester.post('/login', data=dict(
+        response = tester.post('/login', data=dict(
             username=app.config['FAKE_USER'],
             password='deLiberaTelywrOng2'
         ))
@@ -137,11 +144,11 @@ class LoginTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data, b'Wrong password')
 
-    def test_attempt_to_login_a_registered_user_with_wrong_username(self):
+    def test_attempt_to_login_an_unregistered_user(self):
         """Test if logging in with wrong username returns 401 Unauthorized"""
-        response = self.tester.post('/login', data=dict(
+        response = tester.post('/login', data=dict(
             username='dummyusername',
-            password=app.config['FAKE_USER_PASSWORD']
+            password='dummpassword'
         ))
 
         self.assertEqual(response.status_code, 401)
@@ -149,7 +156,7 @@ class LoginTestCase(unittest.TestCase):
 
     def test_attempt_to_login_without_a_credential(self):
         """Test if logging in with wrong password returns 400 Bad Request"""
-        response = self.tester.post('/login', data=dict(
+        response = tester.post('/login', data=dict(
             username=app.config['FAKE_USER'],
         ))
         self.assertEqual(response.status_code, 400)
@@ -162,10 +169,129 @@ class LoginTestCase(unittest.TestCase):
             db.session.commit()
 
 
-class JokesResourceTestCase(unittest.TestCase):
+class BasicJokesResourceTestCase(unittest.TestCase):
+    """
+    Test creating jokes with JWT
+    Test-case 1: create joke with proper parameters
+    Test-case 2: attempt to create over-sized joke
+    Test-case 3: attempt to create joke without content
+    """
+
+    access_token = None
+
+    humongous_string = ''.join(
+        [chr(random.randint(65, 122)) for _ in range(901)]
+    )
+
+    @staticmethod
+    def register_fake_user(username, password, feedback=False):
+        response = tester.post('/register', data=dict(
+            username=username,
+            password=password
+        ))
+        if feedback:
+            return response
+
+    @staticmethod
+    def login_fake_user(username, password, jwt=False):
+        response = tester.post('/login', data=dict(
+            username=username,
+            password=password
+        ))
+        if not jwt:
+            return response
+        return json.loads(response.data.decode('utf-8'))['access_token']
+
+    def setUp(self):
+        # First, register a new user in the User table"""
+        BasicJokesResourceTestCase.register_fake_user(
+            app.config['JOKE_FAKE_USER'],
+            app.config['JOKE_FAKE_USER_PASSWORD']
+        )
+
+        # Then, log in and retrieve JWT
+        self.access_token = BasicJokesResourceTestCase.login_fake_user(
+            app.config['JOKE_FAKE_USER'],
+            app.config['JOKE_FAKE_USER_PASSWORD'],
+            jwt=True
+        )
+
+        # Get id of User than made the request
+        with app.test_request_context():
+            self.identity = User.query.filter_by(
+                username=app.config['JOKE_FAKE_USER']).first().id
+
     def test_creating_a_joke_with_correct_parameters(self):
         """Test if submitting correct parameters to
         create-joke endpoint returns 201 Created"""
+
+        # Send request to protected endpoint
+        # /create-joke with Authorization headers
+        response = tester.put('/create-joke', data=dict(
+            content=app.config['FAKE_JOKE']),
+            headers=dict(Authorization='Bearer '+self.access_token)
+        )
+
+        # Get the newly created joke
+        with app.app_context():
+            this_joke = Joke.query.filter_by(
+                user_id=self.identity,
+                content=app.config['FAKE_JOKE']).first()
+
+        # Check if the newly created joke is present in the Joke table
+        self.assertTrue(this_joke)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data, b'Joke created')
+
+        # Remove the fake joke from the Joke table
+        with app.test_request_context():
+            fake_joke = Joke.query.filter_by(
+                user_id=self.identity,
+                content=app.config['FAKE_JOKE']
+            ).first()
+            db.session.delete(fake_joke)
+            db.session.commit()
+
+    def test_fail_on_submitting_humongous_string(self):
+        """Test if submitting large text (> 900 chars)
+        yields 400 Bad Request
+        """
+        response = tester.put('/create-joke', data=dict(
+            content=self.humongous_string),
+            headers=dict(Authorization='Bearer ' + self.access_token)
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, app.config['TOO_LONG'])
+
+    def test_fail_on_omitting_content(self):
+        """Test if omitting 'content' in request parameters
+        yields 400 Bad Request
+        """
+        response = tester.put('/create-joke', headers=dict(
+            Authorization='Bearer ' + self.access_token)
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, b'No joke content present')
+
+    def tearDown(self):
+        with app.test_request_context():
+            fake_user = User.query.filter_by(username=app.config['JOKE_FAKE_USER']).first()
+            db.session.delete(fake_user)
+            db.session.commit()
+
+
+class RetriveJokesTestCase(unittest.TestCase):
+    pass
+
+
+class UpdateJokeTestCase(unittest.TestCase):
+    pass
+
+
+class DeleteJokeTestCase(unittest.TestCase):
+    pass
 
 
 if __name__ == '__main__':
