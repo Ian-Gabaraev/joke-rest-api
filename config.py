@@ -14,7 +14,7 @@ class Config:
 
     # Tests
     FAKE_DATABASE_URI = "sqlite:///tests/test.db"
-    FAKE_USER = 'iangabaraev95'
+    FAKE_USER = 'bajekcreed09'
     FAKE_USER_PASSWORD = 'xenomorpH9021'
     FAKE_JOKE = 'A horse and a pigeon walk into a bar...'
 

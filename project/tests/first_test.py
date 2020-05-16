@@ -4,6 +4,10 @@ import unittest
 # Fixes the relative import issue for Travis CI
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
+from project.models import User
+from project.models import Joke
+from project.models import Action
+from project.models import db
 
 app = create_app()
 
@@ -27,6 +31,14 @@ class RegistrationResourceTestCase(unittest.TestCase):
         correct credentials returns 201 Created"""
         response = self.tester.post('/register', data=dict(
             username='iangabaraev95', password='xenomorph121'))
+
+        # Tearing down the changes to the User table
+        # w/ flask test request context syntax
+        with app.test_request_context():
+            fake_user = User.query.filter_by(username='iangabaraev95').first()
+            db.session.delete(fake_user)
+            db.session.commit()
+
         self.assertEqual(response.status_code, 201)
 
     def test_registration_with_wrongly_sized_credentials(self):
@@ -45,10 +57,31 @@ class RegistrationResourceTestCase(unittest.TestCase):
         ))
         self.assertEqual(response.status_code, 400)
 
-    def test_attempt_to_register_with_existing_username(self):
+
+class RegisteringWithCustomUsernameTestCase(unittest.TestCase):
+
+    tester = app.test_client()
+
+    def setUp(self):
+        self.tester.post('/register', data=dict(
+            username=app.config['FAKE_USER'],
+            password=app.config['FAKE_USER_PASSWORD']
+        ))
+
+    def test_attempt_to_register_under_existing_username(self):
         """Test if attempt to register under existing username
         returns 400 Bad Request"""
-        pass
+        response = self.tester.post('/register', data=dict(
+                username=app.config['FAKE_USER'],
+                password=app.config['FAKE_USER_PASSWORD']
+        ))
+        self.assertEqual(response.status_code, 400)
+
+    def tearDown(self):
+        with app.test_request_context():
+            fake_user = User.query.filter_by(username=app.config['FAKE_USER']).first()
+            db.session.delete(fake_user)
+            db.session.commit()
 
 
 class JokesResourceTestCase(unittest.TestCase):
