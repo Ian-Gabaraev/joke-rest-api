@@ -10,7 +10,20 @@ from project.models import Joke
 from project.models import Action
 from project.models import db
 
+
 app = create_app()
+
+
+class TestIfTablesExist(unittest.TestCase):
+    """Test if tables are present and initialized"""
+    def test_if_all_tables_are_present(self):
+        with app.app_context():
+            self.assertEqual(
+                len(
+                    set(db.engine.table_names()).difference(
+                        set([table.__tablename__ for table in db.Model.__subclasses__()])
+                    )),
+                0)
 
 
 class IndexPageTestCase(unittest.TestCase):
