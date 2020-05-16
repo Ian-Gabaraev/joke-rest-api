@@ -1,5 +1,6 @@
 from flask import current_app as app
 from flask import jsonify
+from flask import request
 from flask import make_response
 from flask_restful import Resource
 from flask_restful import Api
@@ -9,12 +10,24 @@ from .models import User
 from .models import Joke
 from .models import Action
 from .models import db
-from passlib.hash import sha256_crypt
+from . import bcrypt
+from datetime import datetime
 
 
 @app.route('/')
 def index():
     return '', 204
+
+
+def log_action(req_obj, user_id):
+    new_action = Action(
+        user_ip_address=req_obj.remote_addr,
+        action_time=datetime.now(),
+        action_path=req_obj.path,
+        user_id=user_id,
+    )
+    db.session.add(new_action)
+    db.session.commit()
 
 
 class Registration(Resource):
@@ -46,7 +59,8 @@ class Registration(Resource):
 
         new_user = User(
             username=Registration.parser.parse_args()['username'],
-            password=sha256_crypt.hash(Registration.parser.parse_args()['password'])
+            password=bcrypt.generate_password_hash(
+                Registration.parser.parse_args()['password'])
         )
         try:
             db.session.add(new_user)

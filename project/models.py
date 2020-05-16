@@ -30,6 +30,7 @@ class Action(db.Model):
     action_id = db.Column(db.Integer, primary_key=True)
     user_ip_address = db.Column(db.String, nullable=False)
     action_time = db.Column(db.DateTime, nullable=False)
+    action_path = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'),
                         nullable=False)
 
