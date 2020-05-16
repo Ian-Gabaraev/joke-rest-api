@@ -12,6 +12,9 @@ class Config:
     SQLALCHEMY_DATABASE_URI = "sqlite:///sqlite_db/catalogue.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # JWT
+    JWT_SECRET_KEY = 'super-secret'
+
     # Tests
     FAKE_DATABASE_URI = "sqlite:///tests/test.db"
     FAKE_USER = 'bajekcreed09'

@@ -1,6 +1,7 @@
 import sys
 import os
 import unittest
+import json
 # Fixes the relative import issue for Travis CI
 sys.path.append(os.getcwd() + '/..')
 from project import create_app
@@ -103,22 +104,42 @@ class LoginTestCase(unittest.TestCase):
 
     def test_attempt_to_login_a_registered_user_with_correct_credentials(self):
         """Test if logging in with correct credentials returns 200 OK
-        and a JWT
+        and contains a JWT
         """
         response = self.tester.post('/login', data=dict(
             username=app.config['FAKE_USER'],
             password=app.config['FAKE_USER_PASSWORD']
         ))
+
         self.assertEqual(response.status_code, 200)
-        self.assertIn('JWT', response.args)
+        self.assertIn('access_token', json.loads(response.data.decode('utf-8')))
 
     def test_attempt_to_login_a_registered_user_with_wrong_password(self):
         """Test if logging in with wrong password returns 401 Unauthorized"""
         response = self.tester.post('/login', data=dict(
             username=app.config['FAKE_USER'],
-            password='deliberatelywrong21'
+            password='deLiberaTelywrOng2'
         ))
+
         self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data, b'Wrong password')
+
+    def test_attempt_to_login_a_registered_user_with_wrong_username(self):
+        """Test if logging in with wrong username returns 401 Unauthorized"""
+        response = self.tester.post('/login', data=dict(
+            username='dummyusername',
+            password=app.config['FAKE_USER_PASSWORD']
+        ))
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data, b'No such user')
+
+    def test_attempt_to_login_without_a_credential(self):
+        """Test if logging in with wrong password returns 400 Bad Request"""
+        response = self.tester.post('/login', data=dict(
+            username=app.config['FAKE_USER'],
+        ))
+        self.assertEqual(response.status_code, 400)
 
     def tearDown(self):
         """Remove the fake row from the User table"""
