@@ -31,23 +31,13 @@ class Registration(Resource):
     )
 
     def post(self):
-        data = Registration.parser.parse_args()
-        username = data['username']
-        password = data['password']
-
-        if not username.isalnum() or not len(username) >= 6:
-            return make_response(jsonify(
-                error='User\'s name can only '
-                      'contain digits and letters and '
-                      'must be at least 6 characters long'
-            ), 400)
-
-        if not password.isalnum() and not len(password) >= 6:
-            return make_response(jsonify(
-                error='Password can only '
-                      'contain digits and letters and '
-                      'must be at least 6 characters long'
-            ), 400)
+        for param in Registration.parser.parse_args():
+            if not param.isalnum() or not len(param) >= 6:
+                return make_response(jsonify(
+                    error='User\'s name can only '
+                          'contain digits and letters and '
+                          'must be at least 6 characters long'
+                ), 400)
 
         return make_response('', 201)
 
