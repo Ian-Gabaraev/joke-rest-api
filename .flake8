@@ -2,3 +2,5 @@
 exclude =
  __pycache__,
  ./project/__init__.py,
+ venv,
+
