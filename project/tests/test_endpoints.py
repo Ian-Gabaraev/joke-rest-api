@@ -9,7 +9,6 @@ sys.path.append(os.getcwd() + '/..')
 from project import create_app
 from project.models import User
 from project.models import Joke
-from project.models import Action
 from project.models import db
 
 
@@ -547,6 +546,14 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
             access_token=self.access_token
         )
 
+    @staticmethod
+    def get_user_joke_count(user_id) -> int:
+        with app.app_context():
+            all_jokes = Joke.query.filter_by(
+                user_id=user_id
+            ).all()
+        return len(all_jokes)
+
     def test_retrieve_all_jokes_of_user_if_user_has_jokes(self):
         """
         This User has two jokes, test if endpoint returns them
@@ -608,6 +615,7 @@ class UpdateJokeTestCase(unittest.TestCase):
         is not equal to ANOTHER_FAKE_JOKE
         :return: 204 No Content
         """
+
         self.assertNotEqual(
             BasicJokesResourceTestCase.get_joke_object(
                 user_id=self.user_id,
@@ -673,8 +681,17 @@ class UpdateJokeTestCase(unittest.TestCase):
 
 
 class DeleteJokeTestCase(unittest.TestCase):
+
+    access_token=None
+    user_id = None
+
     def setUp(self):
-        pass
+
+        retrieve_joke_test_case_object = RetrieveJokeTestCase()
+        retrieve_joke_test_case_object.setUp()
+
+        self.access_token = retrieve_joke_test_case_object.access_token
+        self.user_id = retrieve_joke_test_case_object.user_id
 
     @staticmethod
     def delete_all_user_jokes(user_id):
@@ -683,8 +700,75 @@ class DeleteJokeTestCase(unittest.TestCase):
                 db.session.delete(joke)
             db.session.commit()
 
+    @staticmethod
+    def delete_joke_by_joke_id(joke_id, access_token):
+        response = tester.delete('/delete-joke', data=dict(
+            joke_id=joke_id), headers=dict(
+            Authorization='Bearer ' + access_token)
+                      )
+        return response
+
+    def test_attempt_delete_existing_joke(self):
+        """
+        First, assert that User has one Joke
+        Second, request deleting that Joke
+        Third, assert that User has no Jokes
+        Finally, assert that response is 200 OK
+        and the Joke content is in the Response data
+        :return: 200 OK
+        """
+
+        # Assert that newly created Joke is in Joke table
+        self.assertNotEqual(GetAllJokeOfUserTestCase.get_user_joke_count(
+            self.user_id), 0)
+
+        # Get the newly added Joke content
+        this_joke = BasicJokesResourceTestCase.get_joke_object(
+            user_id=self.user_id, by_joke_id=1
+        ).content
+
+        # Request deleting the newly created Joke
+        response = DeleteJokeTestCase.delete_joke_by_joke_id(
+            joke_id=1, access_token=self.access_token
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, bytes(this_joke.encode('utf-8')))
+        self.assertEqual(GetAllJokeOfUserTestCase.get_user_joke_count(
+            self.user_id), 0)
+
+    def test_attempt_delete_nonexistent_joke(self):
+        """
+        Attempt to delete a Joke that does not belong
+        to the User
+        :return: 404 Not Found
+        """
+
+        response = DeleteJokeTestCase.delete_joke_by_joke_id(
+            joke_id=3, access_token=self.access_token
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data, b'This joke does not exist')
+
+    def test_attempt_delete_joke_without_joke_id(self):
+        """
+        Attempt to delete a Joke without passing the joke_id
+        :return: 400 Bad Request
+        """
+
+        response = DeleteJokeTestCase.delete_joke_by_joke_id(
+            joke_id=None, access_token=self.access_token
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, b'joke_id is required')
+
     def tearDown(self):
-        pass
+        try:
+            DeleteJokeTestCase.delete_all_user_jokes(self.user_id)
+        except UnmappedInstanceError:
+            pass
 
 
 if __name__ == '__main__':

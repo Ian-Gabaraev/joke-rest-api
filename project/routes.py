@@ -209,7 +209,28 @@ def update_my_joke():
 @app.route('/delete-joke', methods=['DELETE'])
 @jwt_required
 def delete_my_joke():
-    pass
+    try:
+        assert 'joke_id' in request.form
+    except AssertionError:
+        return make_response('joke_id is required', 400)
+    else:
+
+        this_joke = Joke.query.filter_by(
+            joke_id=request.form['joke_id'],
+            user_id=get_jwt_identity()
+        ).first()
+
+        try:
+            assert this_joke
+        except AssertionError:
+            return make_response('This joke does not exist', 404)
+        else:
+            db.session.delete(this_joke)
+            db.session.commit()
+            return make_response(this_joke.content, 200)
+
+    finally:
+        log_action(request, get_jwt_identity())
 
 
 api = Api(app)
