@@ -1,3 +1,7 @@
+from project.models import db
+from project.models import Joke
+from project.models import User
+from project import create_app
 import sys
 import os
 import unittest
@@ -6,10 +10,6 @@ import random
 from sqlalchemy.orm.exc import UnmappedInstanceError
 # Fixes the relative import issue for Travis CI
 sys.path.append(os.getcwd() + '/..')
-from project import create_app
-from project.models import User
-from project.models import Joke
-from project.models import db
 
 
 app = create_app()
@@ -23,6 +23,7 @@ class TestIfTablesExist(unittest.TestCase):
     Get all the existing table names from the database engine,
     compare them against all the db.Model subclasses
     """
+
     def test_if_all_tables_are_present(self):
         with app.app_context():
             self.assertEqual(
@@ -119,7 +120,7 @@ class RegistrationResourceTestCase(unittest.TestCase):
             feedback=True
         )
         self.fake_user = RegistrationResourceTestCase.get_user_object(
-                username=app.config['FAKE_USER'])
+            username=app.config['FAKE_USER'])
         self.assertTrue(self.fake_user)
         self.assertEqual(response.status_code, 201)
 
@@ -234,7 +235,8 @@ class LoginTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('access_token', json.loads(response.data.decode('utf-8')))
+        self.assertIn('access_token', json.loads(
+            response.data.decode('utf-8')))
 
     def test_attempt_to_login_a_registered_user_with_wrong_password(self):
         """
@@ -761,7 +763,7 @@ class DeleteJokeTestCase(unittest.TestCase):
         response = tester.delete('/delete-joke', data=dict(
             joke_id=joke_id), headers=dict(
             Authorization='Bearer ' + access_token)
-                      )
+        )
         return response
 
     def test_attempt_delete_existing_joke(self):
@@ -844,10 +846,14 @@ class TestImportJokeTestCase(unittest.TestCase):
         )
 
     def test_importing_from_supported_source(self):
+        """
+        Import a Joke from geek jokes
+        :return: None
+        """
         response = tester.put('/import-joke', data=dict(source='geek-jokes'),
                               headers=dict(
             Authorization='Bearer ' + self.access_token)
-                      )
+        )
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data, b'Joke created')
@@ -862,7 +868,7 @@ class TestImportJokeTestCase(unittest.TestCase):
         response = tester.put('/import-joke', data=dict(source='unknown-api'),
                               headers=dict(
             Authorization='Bearer ' + self.access_token)
-                      )
+        )
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data, b'This source is not supported')
