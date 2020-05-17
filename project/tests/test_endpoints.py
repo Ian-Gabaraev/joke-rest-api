@@ -292,18 +292,25 @@ class BasicJokesResourceTestCase(unittest.TestCase):
     )
 
     @staticmethod
-    def get_joke_object(user_id, content):
+    def get_joke_object(user_id, content=None, by_joke_id=None):
         """
         Retrieve joke_id of said joke
         :param user_id: joke owner's user_id
         :param content: joke text
-        :return: int joke_id
+        :param by_joke_id: unique Joke id
+        :return: Joke instance
         """
-        with app.app_context():
-            this_joke = Joke.query.filter_by(
-                user_id=user_id,
-                content=content).first()
-            return this_joke
+        if not by_joke_id:
+            with app.app_context():
+                this_joke = Joke.query.filter_by(
+                    user_id=user_id,
+                    content=content).first()
+                return this_joke
+        else:
+            with app.app_context():
+                return Joke.query.filter_by(
+                    user_id=user_id,
+                    joke_id=by_joke_id).first()
 
     @staticmethod
     def create_joke(content, access_token, feedback=False):
@@ -432,6 +439,9 @@ class RetrieveJokeTestCase(unittest.TestCase):
     Test-case 3: attempt get joke without passing joke_id
     """
 
+    access_token = None
+    user_id = None
+
     @staticmethod
     def get_joke_by_id(joke_id, access_token):
         """
@@ -450,10 +460,16 @@ class RetrieveJokeTestCase(unittest.TestCase):
         Spawning one User and one Joke
         :return:
         """
+
         self.access_token = LoginTestCase.quick_setup_fake_user(
             username=app.config['FAKE_USER'],
             password=app.config['FAKE_USER_PASSWORD']
         )
+
+        self.user_id = RegistrationResourceTestCase.get_user_id(
+            app.config['FAKE_USER']
+        )
+
         BasicJokesResourceTestCase.create_joke(
             content=app.config['FAKE_JOKE'],
             access_token=self.access_token
@@ -471,9 +487,7 @@ class RetrieveJokeTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, bytes(
                          BasicJokesResourceTestCase.get_joke_object(
-                             user_id=RegistrationResourceTestCase.get_user_id(
-                                 app.config['FAKE_USER']
-                             ),
+                             user_id=self.user_id,
                              content=app.config['FAKE_JOKE'],
                          ).content.encode('utf-8')))
 
@@ -512,19 +526,22 @@ class RetrieveJokeTestCase(unittest.TestCase):
 
 
 class GetAllJokeOfUserTestCase(unittest.TestCase):
+
+    access_token = None
+    user_id = None
+
     def setUp(self):
         """
         Spawning one fake User and two Jokes
+        For that, reuse the RJTC set_up() routine
         :return: None
         """
-        self.access_token = LoginTestCase.quick_setup_fake_user(
-            username=app.config['FAKE_USER'],
-            password=app.config['FAKE_USER_PASSWORD']
-        )
-        BasicJokesResourceTestCase.create_joke(
-            content=app.config['FAKE_JOKE'],
-            access_token=self.access_token
-        )
+        retrieve_joke_test_case_object = RetrieveJokeTestCase()
+        retrieve_joke_test_case_object.setUp()
+
+        self.access_token = retrieve_joke_test_case_object.access_token
+        self.user_id = retrieve_joke_test_case_object.user_id
+
         BasicJokesResourceTestCase.create_joke(
             content=app.config['ANOTHER_FAKE_JOKE'],
             access_token=self.access_token
@@ -542,12 +559,8 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data)
 
-    def test_retrieve_all_jokes_of_user_if_user_has_no_jokes(self):
-        """
-        This User has no jokes, test if request to the endpoint
-        returns 204 No Content
-        :return: 204 No Content
-        """
+    @staticmethod
+    def clean_up():
         BasicJokesResourceTestCase.delete_joke(
             user_id=RegistrationResourceTestCase.get_user_id(
                 app.config['FAKE_USER']
@@ -561,6 +574,19 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
             content=app.config['ANOTHER_FAKE_JOKE']
         )
 
+    def test_retrieve_all_jokes_of_user_if_user_has_no_jokes(self):
+        """
+        This User has no jokes, test if request to the endpoint
+        returns 204 No Content
+        :return: 204 No Content
+        """
+        GetAllJokeOfUserTestCase.clean_up()
+
+        response = tester.get('/my-jokes', headers=dict(
+            Authorization='Bearer ' + self.access_token))
+
+        self.assertEqual(response.status_code, 204)
+
     def tearDown(self):
         RegistrationResourceTestCase.delete_user(
             username=app.config['FAKE_USER']
@@ -568,11 +594,52 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
 
 
 class UpdateJokeTestCase(unittest.TestCase):
+    """
+    Test patching user's jokes
+    Here we register a User and two Jokes that belong to him
+    """
     def setUp(self):
-        pass
+        get_all_jokes_object = GetAllJokeOfUserTestCase()
+        get_all_jokes_object.setUp()
+
+        self.access_token = get_all_jokes_object.access_token
+        self.user_id = get_all_jokes_object.user_id
+
+    def test_patching_existing_joke(self):
+        """
+        We presume that User has two non-identical jokes
+        First, we assert that Joke.content by joke_id 1
+        is not equal to ANOTHER_FAKE_JOKE
+        :return: 204 No Content
+        """
+        self.assertNotEqual(
+            BasicJokesResourceTestCase.get_joke_object(
+                user_id=self.user_id, by_joke_id=1
+            ).content,
+            app.config['ANOTHER_FAKE_JOKE'])
+
+        # Here we modify Joke.content by joke_id 1
+        # to match ANOTHER_FAKE_JOKE
+        response = tester.patch('/update-joke',
+                                data=dict(
+                                    joke_id=1,
+                                    content=app.config['ANOTHER_FAKE_JOKE']
+                                ),
+                                headers=dict(
+                                    Authorization='Bearer ' + self.access_token))
+
+        self.assertEqual(response.status_code, 204)
+
+        # Here we assert that Joke.content by joke_id 1
+        # is now equal to ANOTHER_FAKE_JOKE
+        self.assertEqual(
+            BasicJokesResourceTestCase.get_joke_object(
+                user_id=self.user_id, by_joke_id=1
+            ).content,
+            app.config['ANOTHER_FAKE_JOKE'])
 
     def tearDown(self):
-        pass
+        GetAllJokeOfUserTestCase.clean_up()
 
 
 class DeleteJokeTestCase(unittest.TestCase):

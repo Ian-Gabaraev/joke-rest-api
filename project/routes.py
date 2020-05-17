@@ -161,7 +161,16 @@ def get_joke_by_id():
 @app.route('/my-jokes')
 @jwt_required
 def get_my_jokes():
-    pass
+    try:
+        all_jokes = Joke.query.filter_by(user_id=get_jwt_identity()).all()
+        assert all_jokes
+    except AssertionError:
+        return make_response('', 204)
+    else:
+        result = {
+            k: v.content for (k, v) in enumerate(all_jokes)
+        }
+        return jsonify(result)
 
 
 @app.route('/update-joke', methods=['PATCH'])
