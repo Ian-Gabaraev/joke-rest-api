@@ -559,28 +559,13 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data)
 
-    @staticmethod
-    def clean_up():
-        BasicJokesResourceTestCase.delete_joke(
-            user_id=RegistrationResourceTestCase.get_user_id(
-                app.config['FAKE_USER']
-            ),
-            content=app.config['FAKE_JOKE']
-        )
-        BasicJokesResourceTestCase.delete_joke(
-            user_id=RegistrationResourceTestCase.get_user_id(
-                app.config['FAKE_USER']
-            ),
-            content=app.config['ANOTHER_FAKE_JOKE']
-        )
-
     def test_retrieve_all_jokes_of_user_if_user_has_no_jokes(self):
         """
         This User has no jokes, test if request to the endpoint
         returns 204 No Content
         :return: 204 No Content
         """
-        GetAllJokeOfUserTestCase.clean_up()
+        DeleteJokeTestCase.delete_all_user_jokes(self.user_id)
 
         response = tester.get('/my-jokes', headers=dict(
             Authorization='Bearer ' + self.access_token))
@@ -598,6 +583,17 @@ class UpdateJokeTestCase(unittest.TestCase):
     Test patching user's jokes
     Here we register a User and two Jokes that belong to him
     """
+
+    @staticmethod
+    def send_patch(joke_id, access_token, content):
+        return tester.patch('/update-joke',
+                            data=dict(
+                                joke_id=joke_id,
+                                content=content
+                            ),
+                            headers=dict(
+                                Authorization='Bearer ' + access_token))
+
     def setUp(self):
         get_all_jokes_object = GetAllJokeOfUserTestCase()
         get_all_jokes_object.setUp()
@@ -614,19 +610,19 @@ class UpdateJokeTestCase(unittest.TestCase):
         """
         self.assertNotEqual(
             BasicJokesResourceTestCase.get_joke_object(
-                user_id=self.user_id, by_joke_id=1
+                user_id=self.user_id,
+                by_joke_id=1,
+                content=app.config['ANOTHER_FAKE_JOKE']
             ).content,
             app.config['ANOTHER_FAKE_JOKE'])
 
         # Here we modify Joke.content by joke_id 1
         # to match ANOTHER_FAKE_JOKE
-        response = tester.patch('/update-joke',
-                                data=dict(
-                                    joke_id=1,
-                                    content=app.config['ANOTHER_FAKE_JOKE']
-                                ),
-                                headers=dict(
-                                    Authorization='Bearer ' + self.access_token))
+        response = UpdateJokeTestCase.send_patch(
+            joke_id=1,
+            access_token=self.access_token,
+            content=app.config['ANOTHER_FAKE_JOKE']
+        )
 
         self.assertEqual(response.status_code, 204)
 
@@ -638,13 +634,54 @@ class UpdateJokeTestCase(unittest.TestCase):
             ).content,
             app.config['ANOTHER_FAKE_JOKE'])
 
+    def test_attempt_to_patch_nonexistent_joke(self):
+        response = UpdateJokeTestCase.send_patch(
+            joke_id=3,
+            access_token=self.access_token,
+            content=app.config['ANOTHER_FAKE_JOKE']
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data, b'Nothing to patch')
+
+    def test_attempt_to_patch_without_content(self):
+        response = UpdateJokeTestCase.send_patch(
+            joke_id=1,
+            access_token=self.access_token,
+            content=None
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, b'joke_id and content are required')
+
+    def test_attempt_to_patch_with_humongous_string(self):
+        response = UpdateJokeTestCase.send_patch(
+            joke_id=1,
+            access_token=self.access_token,
+            content=BasicJokesResourceTestCase.humongous_string
+        )
+
+        with app.app_context():
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.data, app.config['TOO_LONG'])
+
     def tearDown(self):
-        GetAllJokeOfUserTestCase.clean_up()
+        DeleteJokeTestCase.delete_all_user_jokes(self.user_id)
+        RegistrationResourceTestCase.delete_user(
+            username=app.config['FAKE_USER']
+        )
 
 
 class DeleteJokeTestCase(unittest.TestCase):
     def setUp(self):
         pass
+
+    @staticmethod
+    def delete_all_user_jokes(user_id):
+        with app.app_context():
+            for joke in Joke.query.filter_by(user_id=user_id).all():
+                db.session.delete(joke)
+            db.session.commit()
 
     def tearDown(self):
         pass

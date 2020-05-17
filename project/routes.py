@@ -171,12 +171,39 @@ def get_my_jokes():
             k: v.content for (k, v) in enumerate(all_jokes)
         }
         return jsonify(result)
+    finally:
+        log_action(request, get_jwt_identity())
 
 
 @app.route('/update-joke', methods=['PATCH'])
 @jwt_required
 def update_my_joke():
-    pass
+    try:
+        assert 'joke_id' in request.form
+        assert 'content' in request.form
+    except AssertionError:
+        return make_response('joke_id and content are required', 400)
+    else:
+
+        try:
+            assert len(request.form['content']) <= 900
+        except AssertionError:
+            return make_response(app.config['TOO_LONG'], 400)
+        else:
+
+            this_joke = Joke.query.filter_by(
+                joke_id=request.form['joke_id'],
+                user_id=get_jwt_identity()
+            ).first()
+
+            if not this_joke:
+                return make_response('Nothing to patch', 404)
+
+            this_joke.content = request.form['content']
+            db.session.commit()
+            return make_response('', 204)
+    finally:
+        log_action(request, get_jwt_identity())
 
 
 @app.route('/delete-joke', methods=['DELETE'])
