@@ -1,4 +1,4 @@
 [flake8]
 exclude =
  __pycache__,
- __init__.py,
+ ./project/__init__.py
