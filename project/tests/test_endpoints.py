@@ -19,7 +19,9 @@ tester = app.test_client()
 
 class TestIfTablesExist(unittest.TestCase):
     """
-    Test if tables are present and initialized
+    Test if tables are present and initialized:
+    Get all the existing table names from the database engine,
+    compare them against all the db.Model subclasses
     """
     def test_if_all_tables_are_present(self):
         with app.app_context():
@@ -412,6 +414,30 @@ class BasicJokesResourceTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data, app.config['TOO_LONG'])
 
+    def test_attempt_create_same_joke_twice(self):
+        """
+        In order to prevent the User from overfeeding
+        the table, we make sure a User cannot create the
+        same Joke twice
+        :return:
+        """
+
+        # Create Joke
+        BasicJokesResourceTestCase.create_joke(
+            content=app.config['FAKE_JOKE'],
+            access_token=self.access_token,
+            feedback=True
+        )
+
+        # Attempt create Joke again
+        response = BasicJokesResourceTestCase.create_joke(
+            content=app.config['FAKE_JOKE'],
+            access_token=self.access_token,
+            feedback=True
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_fail_on_omitting_content(self):
         """
         Test if omitting 'content' in request parameters
@@ -525,6 +551,11 @@ class RetrieveJokeTestCase(unittest.TestCase):
 
 
 class GetAllJokeOfUserTestCase(unittest.TestCase):
+    """
+    Test retrieving all User's jokes
+    Test-case 1: User has jokes, request to retrieve
+    Test-case 2: User has no jokes, request to retrieve
+    """
 
     access_token = None
     user_id = None
@@ -548,6 +579,11 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
 
     @staticmethod
     def get_user_joke_count(user_id) -> int:
+        """
+        Return the number of Jokes that belong to User
+        :param user_id: User's id
+        :return: int: number of User's jokes
+        """
         with app.app_context():
             all_jokes = Joke.query.filter_by(
                 user_id=user_id
@@ -588,7 +624,10 @@ class GetAllJokeOfUserTestCase(unittest.TestCase):
 class UpdateJokeTestCase(unittest.TestCase):
     """
     Test patching user's jokes
-    Here we register a User and two Jokes that belong to him
+    Test-case 1: Joke exists, let's patch it
+    Test-case 2: Joke does not exist, but patch it
+    Test-case 3: Request to patch Joke but do not pass its joke_id
+    Test-case 4: Request to patch existing Joke with huge string
     """
 
     @staticmethod
@@ -681,8 +720,13 @@ class UpdateJokeTestCase(unittest.TestCase):
 
 
 class DeleteJokeTestCase(unittest.TestCase):
-
-    access_token=None
+    """
+    Test deletion of Jokes
+    Test-case 1: Joke exists, delete it
+    Test-case 2: Joke does not exist, but delete it
+    Test-case 3: Request to delete Joke but do not pass its joke_id
+    """
+    access_token = None
     user_id = None
 
     def setUp(self):
@@ -695,6 +739,12 @@ class DeleteJokeTestCase(unittest.TestCase):
 
     @staticmethod
     def delete_all_user_jokes(user_id):
+        """
+        This method allows for deletion of all
+        jokes than belong to User
+        :param user_id: User's id
+        :return: None
+        """
         with app.app_context():
             for joke in Joke.query.filter_by(user_id=user_id).all():
                 db.session.delete(joke)
@@ -702,6 +752,12 @@ class DeleteJokeTestCase(unittest.TestCase):
 
     @staticmethod
     def delete_joke_by_joke_id(joke_id, access_token):
+        """
+        This method allows for deletion of jokes by id
+        :param joke_id: Joke joke_id
+        :param access_token: User's JWT access token
+        :return: Response
+        """
         response = tester.delete('/delete-joke', data=dict(
             joke_id=joke_id), headers=dict(
             Authorization='Bearer ' + access_token)
@@ -769,6 +825,47 @@ class DeleteJokeTestCase(unittest.TestCase):
             DeleteJokeTestCase.delete_all_user_jokes(self.user_id)
         except UnmappedInstanceError:
             pass
+
+
+class TestImportJokeTestCase(unittest.TestCase):
+    """
+    Test importing jokes from foreign APIs
+    Test-case 1: Import Joke from existing source
+    Test-case 2: Import Joke from unknown source
+    """
+
+    access_token = None
+
+    def setUp(self):
+
+        self.access_token = LoginTestCase.quick_setup_fake_user(
+            username=app.config['FAKE_USER'],
+            password=app.config['FAKE_USER_PASSWORD']
+        )
+
+    def test_importing_from_supported_source(self):
+        response = tester.put('/import-joke', data=dict(source='geek-jokes'),
+                              headers=dict(
+            Authorization='Bearer ' + self.access_token)
+                      )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data, b'Joke created')
+
+        DeleteJokeTestCase.delete_all_user_jokes(
+            user_id=RegistrationResourceTestCase.get_user_id(
+                app.config['FAKE_USER']
+            )
+        )
+
+    def test_importing_from_unsupported_source(self):
+        response = tester.put('/import-joke', data=dict(source='unknown-api'),
+                              headers=dict(
+            Authorization='Bearer ' + self.access_token)
+                      )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data, b'This source is not supported')
 
 
 if __name__ == '__main__':

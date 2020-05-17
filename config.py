@@ -33,6 +33,9 @@ class Config:
                     "characters long, 20 characters at max"
     TOO_LONG = b"Joke string is too long. Max allowed size is 900 characters"
 
+    # Bounds
+    JOKES_LIMIT = 100
+
     # Foreign APIs
     FOREIGN_API = {
         'geek-jokes': 'https://geek-jokes.sameerkumar.website/api?format=json',
